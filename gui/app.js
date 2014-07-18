@@ -15,6 +15,50 @@ syncthing.config(function ($httpProvider) {
     $httpProvider.defaults.xsrfCookieName = 'CSRF-Token';
 });
 
+syncthing.controller('EventCtrl', function ($scope, $http) {
+    $scope.lastEvent = null;
+    var online = false;
+    var lastID = 0;
+
+    var successFn = function (data) {
+        if (!online) {
+            $scope.$emit('UIOnline');
+            online = true;
+        }
+
+        if (lastID > 0) {
+            data.forEach(function (event) {
+                $scope.$emit(event.type, event);
+            });
+        };
+
+        $scope.lastEvent = data[data.length - 1];
+        lastID = $scope.lastEvent.id;
+
+        setTimeout(function () {
+            $http.get(urlbase + '/events?since=' + lastID)
+            .success(successFn)
+            .error(errorFn);
+        }, 500);
+    };
+
+    var errorFn = function (data) {
+        if (online) {
+            $scope.$emit('UIOffline');
+            online = false;
+        }
+        setTimeout(function () {
+            $http.get(urlbase + '/events?since=' + lastID)
+            .success(successFn)
+            .error(errorFn);
+        }, 500);
+    };
+
+    $http.get(urlbase + '/events')
+        .success(successFn)
+        .error(errorFn);
+});
+
 syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     var prevDate = 0;
     var getOK = true;
@@ -72,6 +116,30 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     {id: 'APIKey', descr: 'API Key', type: 'apikey'},
     ];
 
+    $scope.$on('StateChanged', function (event, arg) {
+        var data = arg.data;
+        if ($scope.model[data.repo]) {
+            $scope.model[data.repo].state = data.to;
+        }
+    });
+
+    $scope.$on('NodeDisconnected', function (event, arg) {
+        delete $scope.connections[arg.data.id];
+    });
+
+    $scope.$on('NodeConnected', function (event, arg) {
+        if (!$scope.connections[arg.data.id]) {
+            $scope.connections[arg.data.id] = {
+                inbps: 0,
+                outbps: 0,
+                InBytesTotal: 0,
+                OutBytesTotal: 0,
+                Completion: 0,
+                Address: arg.data.addr,
+            };
+        }
+    });
+
     function getSucceeded() {
         if (!getOK) {
             $scope.init();
@@ -103,6 +171,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         }).error(function () {
             getFailed();
         });
+        /*
         Object.keys($scope.repos).forEach(function (id) {
             if (typeof $scope.model[id] === 'undefined') {
                 // Never fetched before
@@ -119,6 +188,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
                 });
             }
         });
+*/
         $http.get(urlbase + '/connections').success(function (data) {
             var now = Date.now(),
             td = (now - prevDate) / 1000,
@@ -612,6 +682,12 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
                     }
                 }
             }
+
+            Object.keys($scope.repos).forEach(function (id) {
+                $http.get(urlbase + '/model?repo=' + encodeURIComponent(id)).success(function (data) {
+                    $scope.model[id] = data;
+                });
+            });
         });
 
         $http.get(urlbase + '/config/sync').success(function (data) {
