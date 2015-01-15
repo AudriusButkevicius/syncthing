@@ -48,6 +48,8 @@ func TestDefaultValues(t *testing.T) {
 		SymlinksEnabled:         true,
 		LimitBandwidthInLan:     false,
 		DisabledFeatures:        []string{},
+		IndexIntervalS:          5,
+		TemporaryIndexIntervalS: 10,
 	}
 
 	cfg := New(device1)
@@ -154,6 +156,8 @@ func TestOverriddenValues(t *testing.T) {
 		SymlinksEnabled:         false,
 		LimitBandwidthInLan:     true,
 		DisabledFeatures:        []string{"A", "B"},
+		IndexIntervalS:          60,
+		TemporaryIndexIntervalS: 60,
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)

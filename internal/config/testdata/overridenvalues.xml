@@ -24,6 +24,7 @@
         <limitBandwidthInLan>true</limitBandwidthInLan>
         <disabledFeature>A</disabledFeature>
         <disabledFeature>B</disabledFeature>
->>>>>>> Add feature flags
+        <indexAnnounceIntervalS>60</indexAnnounceIntervalS>
+        <temporaryIndexAnnounceIntervalS>60</temporaryIndexAnnounceIntervalS>
     </options>
 </configuration>

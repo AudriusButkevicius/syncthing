@@ -177,6 +177,8 @@ type OptionsConfiguration struct {
 	SymlinksEnabled         bool     `xml:"symlinksEnabled" json:"symlinksEnabled" default:"true"`
 	LimitBandwidthInLan     bool     `xml:"limitBandwidthInLan" json:"limitBandwidthInLan" default:"false"`
 	DisabledFeatures        []string `xml:"disabledFeature" json:"disabledFeatures"`
+	IndexIntervalS          int      `xml:"indexAnnounceIntervalS" json:"indexAnnounceIntervalS" default:"5"`
+	TemporaryIndexIntervalS int      `xml:"temporaryIndexAnnounceIntervalS" json:"temporaryIndexAnnounceIntervalS" default:"10"`
 
 	Deprecated_RescanIntervalS int    `xml:"rescanIntervalS,omitempty" json:"-"`
 	Deprecated_UREnabled       bool   `xml:"urEnabled,omitempty" json:"-"`
