@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/events"
 )
@@ -20,7 +21,7 @@ type ProgressEmitter struct {
 	registry map[string]*sharedPullerState
 	interval time.Duration
 	last     map[string]map[string]*pullerProgress
-	mut      sync.Mutex
+	mut      sync.RWMutex
 
 	timer *time.Timer
 
@@ -52,7 +53,7 @@ func (t *ProgressEmitter) Serve() {
 			}
 			return
 		case <-t.timer.C:
-			t.mut.Lock()
+			t.mut.RLock()
 			if debug {
 				l.Debugln("progress emitter: timer - looking after", len(t.registry))
 			}
@@ -75,7 +76,7 @@ func (t *ProgressEmitter) Serve() {
 			if len(t.registry) != 0 {
 				t.timer.Reset(t.interval)
 			}
-			t.mut.Unlock()
+			t.mut.RUnlock()
 		}
 	}
 }
@@ -123,8 +124,8 @@ func (t *ProgressEmitter) Deregister(s *sharedPullerState) {
 
 // Returns number of bytes completed in the given folder.
 func (t *ProgressEmitter) BytesCompleted(folder string) (bytes int64) {
-	t.mut.Lock()
-	defer t.mut.Unlock()
+	t.mut.RLock()
+	defer t.mut.RUnlock()
 
 	for _, s := range t.registry {
 		if s.folder == folder {
@@ -135,4 +136,33 @@ func (t *ProgressEmitter) BytesCompleted(folder string) (bytes int64) {
 		l.Debugf("progress emitter: bytes completed for %s: %d", folder, bytes)
 	}
 	return
+}
+
+// Get's the temporary index for a given folder.
+func (t *ProgressEmitter) GetTemporaryIndex(folder string) []protocol.FileInfo {
+	t.mut.RLock()
+	defer t.mut.RUnlock()
+
+	blocks := []protocol.FileInfo{}
+	for _, state := range t.registry {
+		if state.folder == folder {
+			blocks = append(blocks, protocol.FileInfo{
+				Name:         state.file.Name,
+				Flags:        state.file.Flags,
+				Modified:     state.file.Modified,
+				Version:      state.file.Version,
+				LocalVersion: state.file.LocalVersion,
+				Blocks:       state.getAvailableBlocks(),
+			})
+		}
+	}
+	return blocks
+}
+
+// Get's the shared puller state for the given file in the given folder.
+func (t *ProgressEmitter) GetPullerState(folder, file string) *sharedPullerState {
+	t.mut.RLock()
+	defer t.mut.RUnlock()
+
+	return t.registry[filepath.Join(folder, file)]
 }
