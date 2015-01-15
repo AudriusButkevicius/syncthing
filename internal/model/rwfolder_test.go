@@ -66,6 +66,8 @@ func TestHandleFile(t *testing.T) {
 	requiredFile := existingFile
 	requiredFile.Blocks = blocks[1:]
 
+	cfg := config.Wrap("/tmp/test", config.Configuration{})
+
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
@@ -73,9 +75,10 @@ func TestHandleFile(t *testing.T) {
 	m.updateLocal("default", existingFile)
 
 	p := rwFolder{
-		folder: "default",
-		dir:    "testdata",
-		model:  m,
+		folder:          "default",
+		dir:             "testdata",
+		model:           m,
+		progressEmitter: NewProgressEmitter(cfg),
 	}
 
 	copyChan := make(chan copyBlocksState, 1)
@@ -120,6 +123,8 @@ func TestHandleFileWithTemp(t *testing.T) {
 	requiredFile := existingFile
 	requiredFile.Blocks = blocks[1:]
 
+	cfg := config.Wrap("/tmp/test", config.Configuration{})
+
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
@@ -127,9 +132,10 @@ func TestHandleFileWithTemp(t *testing.T) {
 	m.updateLocal("default", existingFile)
 
 	p := rwFolder{
-		folder: "default",
-		dir:    "testdata",
-		model:  m,
+		folder:          "default",
+		dir:             "testdata",
+		model:           m,
+		progressEmitter: NewProgressEmitter(cfg),
 	}
 
 	copyChan := make(chan copyBlocksState, 1)
@@ -183,6 +189,7 @@ func TestCopierFinder(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
+
 	// Update index
 	m.updateLocal("default", existingFile)
 
@@ -198,9 +205,10 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	p := rwFolder{
-		folder: "default",
-		dir:    "testdata",
-		model:  m,
+		folder:          "default",
+		dir:             "testdata",
+		model:           m,
+		progressEmitter: NewProgressEmitter(cfg),
 	}
 
 	copyChan := make(chan copyBlocksState)
@@ -332,9 +340,10 @@ func TestLastResortPulling(t *testing.T) {
 	}
 
 	p := rwFolder{
-		folder: "default",
-		dir:    "testdata",
-		model:  m,
+		folder:          "default",
+		dir:             "testdata",
+		model:           m,
+		progressEmitter: NewProgressEmitter(cfg),
 	}
 
 	copyChan := make(chan copyBlocksState)
