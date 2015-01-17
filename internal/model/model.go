@@ -1517,13 +1517,18 @@ func (m *Model) Availability(folder, file string) []protocol.DeviceID {
 		return nil
 	}
 
-	availableDevices := []protocol.DeviceID{}
+	availableDevices := make(map[protocol.DeviceID]uint32)
 	for _, device := range fs.Availability(file) {
 		_, ok := m.protoConn[device]
 		if ok {
-			availableDevices = append(availableDevices, device)
+			availableDevices[device] = 0
 		}
 	}
+
+	for _, device := range m.tempIndex.Lookup(folder, file, hash) {
+		availableDevices[device] = protocol.FlagRequestTemporary
+	}
+
 	return availableDevices
 }
 
