@@ -18,6 +18,7 @@ package model
 import (
 	"bufio"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -1314,6 +1315,41 @@ func (m *Model) State(folder string) (string, time.Time) {
 	changed := m.folderStateChanged[folder]
 	m.smut.RUnlock()
 	return state.String(), changed
+}
+
+func (m *Model) WriteFiles(folder, prefix string, w io.Writer, offset, limit int) {
+	m.fmut.RLock()
+	files, ok := m.folderFiles[folder]
+	m.fmut.RUnlock()
+	if !ok {
+		return
+	}
+
+	files.WithGlobalTruncated(func(fi db.FileIntf) bool {
+		f := fi.(db.FileInfoTruncated)
+		f.Name = osutil.NormalizedFilename(f.Name)
+		if !strings.HasPrefix(f.Name, prefix) {
+			return true
+		}
+
+		if offset > 0 {
+			offset--
+			return true
+		}
+
+		if limit == 0 {
+			return false
+		}
+
+		limit--
+
+		bytes, err := json.Marshal(f.Name)
+		if err != nil {
+			return false
+		}
+		w.Write(bytes)
+		return true
+	})
 }
 
 func (m *Model) Override(folder string) {

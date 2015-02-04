@@ -130,6 +130,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/system", restGetSystem)
 	getRestMux.HandleFunc("/rest/upgrade", restGetUpgrade)
 	getRestMux.HandleFunc("/rest/version", restGetVersion)
+	getRestMux.HandleFunc("/rest/files", withModel(m, restGetFiles))
 	getRestMux.HandleFunc("/rest/stats/device", withModel(m, restGetDeviceStats))
 	getRestMux.HandleFunc("/rest/stats/folder", withModel(m, restGetFolderStats))
 
@@ -536,6 +537,31 @@ func restGetIgnores(m *model.Model, w http.ResponseWriter, r *http.Request) {
 		"ignore":   ignores,
 		"patterns": patterns,
 	})
+}
+
+func restGetFiles(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	limit, err := strconv.Atoi(qs.Get("limit"))
+	if err != nil {
+		limit = -1
+	}
+	offset, err := strconv.Atoi(qs.Get("offset"))
+	if err != nil {
+		offset = -1
+	}
+
+	w.Write([]byte("{"))
+	if offset > -1 {
+		w.Write([]byte(fmt.Sprintf("\"offset\":%d,", offset)))
+	}
+	if limit > -1 {
+		w.Write([]byte(fmt.Sprintf("\"limit\":%d,", limit)))
+	}
+	w.Write([]byte("\"files\":["))
+	m.WriteFiles(qs.Get("folder"), qs.Get("prefix"), newSeparatingWriter(w, ","), offset, limit)
+	w.Write([]byte("]}"))
 }
 
 func restPostIgnores(m *model.Model, w http.ResponseWriter, r *http.Request) {
