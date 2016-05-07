@@ -382,7 +382,9 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
 
 	// This might might be more than it really is, because some blocks can be of a smaller size.
 	m.pmut.RLock()
-	need -= int64(m.deviceDownloads[device].NumberOfBlocksInProgress() * protocol.BlockSize)
+	x := m.deviceDownloads[device].NumberOfBlocksInProgress()
+	l.Infoln("XXX completion", device, "folder", folder, "blocks", x)
+	need -= int64(x * protocol.BlockSize)
 	m.pmut.RUnlock()
 
 	needRatio := float64(need) / float64(tot)
@@ -2213,6 +2215,7 @@ func makeForgetUpdate(files []protocol.FileInfo) []protocol.FileDownloadProgress
 		if file.IsSymlink() || file.IsDirectory() || file.IsDeleted() {
 			continue
 		}
+		l.Infoln("XXX MAKING FORGET", file.Name)
 		updates = append(updates, protocol.FileDownloadProgressUpdate{
 			Name:       file.Name,
 			Version:    file.Version,

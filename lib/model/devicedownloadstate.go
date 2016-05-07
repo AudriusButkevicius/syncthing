@@ -59,6 +59,7 @@ func (p *deviceFolderDownloadState) Update(updates []protocol.FileDownloadProgre
 		if update.UpdateType == protocol.UpdateTypeForget && ok && local.version.Equal(update.Version) {
 			p.numberOfBlocksInProgress -= len(local.blockIndexes)
 			delete(p.files, update.Name)
+			l.Infoln("XXX forget", update.Name, p.numberOfBlocksInProgress)
 		} else if update.UpdateType == protocol.UpdateTypeAppend {
 			if !ok {
 				local = deviceFolderFileDownloadState{
@@ -73,6 +74,7 @@ func (p *deviceFolderDownloadState) Update(updates []protocol.FileDownloadProgre
 				local.blockIndexes = append(local.blockIndexes, update.BlockIndexes...)
 			}
 			p.files[update.Name] = local
+			l.Infoln("XXX append", update.Name, len(local.blockIndexes))
 			p.numberOfBlocksInProgress += len(update.BlockIndexes)
 		}
 	}
