@@ -23,6 +23,7 @@ type HelloResult struct {
 	DeviceName    string
 	ClientName    string
 	ClientVersion string
+	SharingCode   string
 }
 
 var (
@@ -84,6 +85,7 @@ func readHello(c io.Reader) (HelloResult, error) {
 			DeviceName:    hello.DeviceName,
 			ClientName:    hello.ClientName,
 			ClientVersion: hello.ClientVersion,
+			SharingCode:   hello.SharingCode,
 		}
 		return res, nil
 
@@ -105,7 +107,11 @@ func readHello(c io.Reader) (HelloResult, error) {
 		if err := hello.UnmarshalXDR(buf); err != nil {
 			return HelloResult{}, err
 		}
-		res := HelloResult(hello)
+		res := HelloResult{
+			DeviceName:    hello.DeviceName,
+			ClientName:    hello.ClientName,
+			ClientVersion: hello.ClientVersion,
+		}
 		return res, ErrTooOldVersion13
 
 	case 0x00010001, 0x00010000:

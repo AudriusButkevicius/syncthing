@@ -132,6 +132,7 @@ type Configuration struct {
 	Options        OptionsConfiguration  `xml:"options" json:"options"`
 	IgnoredDevices []protocol.DeviceID   `xml:"ignoredDevice" json:"ignoredDevices"`
 	IgnoredFolders []string              `xml:"ignoredFolder" json:"ignoredFolders"`
+	SharingCodes   []SharingCode         `xml:"sharingCode" json:"sharingCodes"`
 	XMLName        xml.Name              `xml:"configuration" json:"-"`
 
 	MyID            protocol.DeviceID `xml:"-" json:"-"` // Provided by the instantiator.
@@ -162,6 +163,10 @@ func (cfg Configuration) Copy() Configuration {
 	// FolderConfiguraion.ID is type string
 	newCfg.IgnoredFolders = make([]string, len(cfg.IgnoredFolders))
 	copy(newCfg.IgnoredFolders, cfg.IgnoredFolders)
+
+	// SharingCodes are values
+	newCfg.SharingCodes = make([]SharingCode, len(cfg.SharingCodes))
+	copy(newCfg.SharingCodes, cfg.SharingCodes)
 
 	return newCfg
 }
@@ -221,6 +226,9 @@ func (cfg *Configuration) clean() error {
 	}
 	if cfg.IgnoredFolders == nil {
 		cfg.IgnoredFolders = []string{}
+	}
+	if cfg.SharingCodes == nil {
+		cfg.SharingCodes = []SharingCode{}
 	}
 	if cfg.Options.AlwaysLocalNets == nil {
 		cfg.Options.AlwaysLocalNets = []string{}
@@ -390,7 +398,6 @@ func (cfg *Configuration) DeviceMap() map[protocol.DeviceID]DeviceConfiguration 
 	}
 	return m
 }
-
 func convertV27V28(cfg *Configuration) {
 	// Show a notification about enabling filesystem watching
 	cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs, "fsWatcherNotification")

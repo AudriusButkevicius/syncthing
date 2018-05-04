@@ -915,6 +915,11 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	dbLocation := filepath.Dir(m.db.Location())
 	changed := false
 	deviceCfg := m.cfg.Devices()[deviceID]
+	if deviceCfg.SharingCode != "" {
+		deviceCfg.SharingCode = ""
+		changed = true
+		m.cfg.SetDevice(deviceCfg)
+	}
 
 	// See issue #3802 - in short, we can't send modern symlink entries to older
 	// clients.
@@ -1480,6 +1485,19 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 // This allows us to extract some information from the Hello message
 // and add it to a list of known devices ahead of any checks.
 func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protocol.HelloResult) error {
+	if hello.SharingCode != "" {
+		// Lock everything
+		m.fmut.Lock()
+		m.pmut.Lock()
+		waiter, changed := m.handleSharingCodeLocked(remoteID, hello)
+		m.pmut.Unlock()
+		m.fmut.Unlock()
+		if changed {
+			waiter.Wait()
+			m.cfg.Save()
+		}
+	}
+
 	if m.cfg.IgnoredDevice(remoteID) {
 		return errDeviceIgnored
 	}
@@ -1510,14 +1528,69 @@ func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 // GetHello is called when we are about to connect to some remote device.
 func (m *Model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 	name := ""
-	if _, ok := m.cfg.Device(id); ok {
+	sharingCode := ""
+	if dev, ok := m.cfg.Device(id); ok {
 		name = m.cfg.MyName()
+		sharingCode = dev.SharingCode
 	}
 	return &protocol.Hello{
 		DeviceName:    name,
 		ClientName:    m.clientName,
 		ClientVersion: m.clientVersion,
+		SharingCode:   sharingCode,
 	}
+}
+
+func (m *Model) handleSharingCodeLocked(device protocol.DeviceID, hello protocol.HelloResult) (config.Waiter, bool) {
+	cfg := m.cfg.RawCopy()
+	changed := false
+	var waiter config.Waiter
+	for i, sharingCode := range cfg.SharingCodes {
+		if sharingCode.Code == hello.SharingCode && sharingCode.CanBeUsed() {
+			// Find the folder (and it's index in the config)
+			for j, fcfg := range cfg.Folders {
+				if fcfg.ID == sharingCode.FolderID {
+					// See if the folder is already shared, if it is, abort early.
+					for _, fdev := range fcfg.Devices {
+						if fdev.DeviceID == device {
+							return nil, false
+						}
+					}
+
+					// At this point we're going to share the folder and potentially add a device
+					changed = true
+
+					// See if we already have this device (and we're just adding a new folder)
+					if _, ok := cfg.DeviceMap()[device]; !ok {
+						l.Infof("Adding device %v to config (vouched by sharing code)", device)
+						cfg.Devices = append(cfg.Devices, config.DeviceConfiguration{
+							DeviceID:  device,
+							Name:      hello.DeviceName,
+							Addresses: []string{"dynamic"},
+						})
+					}
+
+					l.Infof("Sharing folder %s with %v (vouched by sharing code)", fcfg.ID, device)
+					fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{
+						DeviceID:    device,
+						SharingCode: sharingCode.Code,
+					})
+
+					// Update the folder
+					cfg.Folders[j] = fcfg
+
+					// Update the sharing code
+					sharingCode.TimesUsed += 1
+					cfg.SharingCodes[i] = sharingCode
+				}
+			}
+		}
+	}
+
+	if changed {
+		waiter, _ = m.cfg.Replace(cfg)
+	}
+	return waiter, changed
 }
 
 // AddConnection adds a new peer connection to the model. An initial index will
