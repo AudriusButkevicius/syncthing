@@ -46,7 +46,7 @@ type httpClient interface {
 }
 
 const (
-	defaultReannounceInterval  = 30 * time.Minute
+	defaultReannounceInterval  = 5 * time.Second
 	announceErrorRetryInterval = 5 * time.Minute
 	requestTimeout             = 5 * time.Second
 )
@@ -190,9 +190,11 @@ func (c *globalClient) String() string {
 }
 
 func (c *globalClient) serve(ctx context.Context) {
+	l.Infoln("SERVE")
 	if c.noAnnounce {
 		// We're configured to not do announcements, only lookups. To maintain
 		// the same interface, we just pause here if Serve() is run.
+		l.Infoln("NO ANN")
 		<-ctx.Done()
 		return
 	}
@@ -206,11 +208,13 @@ func (c *globalClient) serve(ctx context.Context) {
 	for {
 		select {
 		case <-eventSub.C():
+			l.Infoln("EVENT")
 			// Defer announcement by 2 seconds, essentially debouncing
 			// if we have a stream of events incoming in quick succession.
 			timer.Reset(2 * time.Second)
 
 		case <-timer.C:
+			l.Infoln("TIMER")
 			c.sendAnnouncement(ctx, timer)
 
 		case <-ctx.Done():
@@ -229,6 +233,7 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 		// There are legitimate cases for not having anything to announce,
 		// yet still using global discovery for lookups. Do not error out
 		// here.
+		l.Infof("NO ADDRS")
 		c.setError(nil)
 		timer.Reset(announceErrorRetryInterval)
 		return
@@ -237,7 +242,7 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 	// The marshal doesn't fail, I promise.
 	postData, _ := json.Marshal(ann)
 
-	l.Debugf("Announcement: %s", postData)
+	l.Infof("Announcement: %v", ann)
 
 	resp, err := c.announceClient.Post(ctx, c.server, "application/json", bytes.NewReader(postData))
 	if err != nil {

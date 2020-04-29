@@ -55,7 +55,7 @@ func (t *tcpListener) serve(ctx context.Context) error {
 		Control: dialer.ReusePortControl,
 	}
 
-	listener, err := lc.Listen(context.TODO(), t.uri.Scheme, tcaddr.String())
+	listener, err := lc.Listen(ctx, t.uri.Scheme, tcaddr.String())
 	if err != nil {
 		l.Infoln("Listen (BEP/tcp):", err)
 		return err

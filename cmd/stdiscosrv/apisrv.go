@@ -129,7 +129,7 @@ func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 	ctx := context.WithValue(topCtx, idKey, reqID)
 
 	if debug {
-		log.Println(reqID, req.Method, req.URL)
+		log.Println(reqID, req.Method, req.URL, req.RemoteAddr)
 	}
 
 	remoteAddr := &net.TCPAddr{
@@ -259,6 +259,8 @@ func (s *apiSrv) handlePOST(ctx context.Context, remoteAddr *net.TCPAddr, w http
 		return
 	}
 
+	log.Println("Announce:", deviceID, addresses, ann.Addresses)
+
 	if err := s.handleAnnounce(deviceID, addresses); err != nil {
 		announceRequestsTotal.WithLabelValues("internal_error").Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
@@ -376,11 +378,13 @@ func fixupAddresses(remote *net.TCPAddr, addresses []string) []string {
 	for _, annAddr := range addresses {
 		uri, err := url.Parse(annAddr)
 		if err != nil {
+			log.Print("Discarding parse", annAddr, err.Error())
 			continue
 		}
 
 		host, port, err := net.SplitHostPort(uri.Host)
 		if err != nil {
+			log.Print("Discarding split", annAddr, err.Error())
 			continue
 		}
 
@@ -388,10 +392,12 @@ func fixupAddresses(remote *net.TCPAddr, addresses []string) []string {
 
 		// Some classes of IP are no-go.
 		if ip.IsLoopback() || ip.IsMulticast() {
+			log.Print("Discarding lp/mc", annAddr)
 			continue
 		}
 
 		if remote != nil {
+			log.Print("Got remove")
 			if host == "" || ip.IsUnspecified() {
 				// Replace the unspecified IP with the request source.
 

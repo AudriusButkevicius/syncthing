@@ -115,6 +115,8 @@ func (t *relayListener) serve(ctx context.Context) error {
 			if currentURI != oldURI {
 				oldURI = currentURI
 				t.notifyAddressesChanged(t)
+			} else {
+				l.Infoln("ADDRESS NOT CHANGED")
 			}
 
 		case <-ctx.Done():
