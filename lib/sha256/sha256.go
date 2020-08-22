@@ -15,11 +15,13 @@ import (
 	"math"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/klauspost/cpuid"
 	minioSha256 "github.com/minio/sha256-simd"
 	"github.com/syncthing/syncthing/lib/logger"
+	"github.com/syncthing/syncthing/lib/sync"
 )
 
 var l = logger.DefaultLogger.NewFacility("sha256", "SHA256 hashing package")
@@ -27,6 +29,7 @@ var l = logger.DefaultLogger.NewFacility("sha256", "SHA256 hashing package")
 const (
 	benchmarkingIterations = 3
 	benchmarkingDuration   = 150 * time.Millisecond
+	benchmarkingRoutines   = 100
 	defaultImpl            = "crypto/sha256"
 	minioImpl              = "minio/sha256-simd"
 	minioAvx512Impl        = "minio/sha256-avx512"
@@ -154,20 +157,32 @@ func minioAvx512Sum256(data []byte) [Size]byte {
 }
 
 func cpuBenchOnce(duration time.Duration, newFn func() hash.Hash) float64 {
-	chunkSize := 100 * 1 << 10
+	// Protocol max block size.
+	chunkSize := 16 << 20
 	h := newFn()
 	bs := make([]byte, chunkSize)
 	rand.Reader.Read(bs)
 
 	t0 := time.Now()
-	b := 0
-	for time.Since(t0) < duration {
-		h.Write(bs)
-		b += chunkSize
+	wg := sync.NewWaitGroup()
+	var b uint64
+	for i := 0; i <= benchmarkingRoutines; i++ {
+		wg.Add(1)
+		go func() {
+			sz := 0
+			for time.Since(t0) < duration {
+				h.Write(bs)
+				sz += chunkSize
+			}
+			atomic.AddUint64(&b, uint64(sz))
+			wg.Done()
+		}()
 	}
+	wg.Wait()
+	bt := atomic.LoadUint64(&b)
 	h.Sum(nil)
 	d := time.Since(t0)
-	return float64(int(float64(b)/d.Seconds()/(1<<20)*100)) / 100
+	return float64(int(float64(bt)/d.Seconds()/(1<<20)*100)) / 100
 }
 
 func formatRate(rate float64) string {
