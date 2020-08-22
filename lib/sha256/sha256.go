@@ -14,6 +14,7 @@ import (
 	"hash"
 	"math"
 	"os"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/klauspost/cpuid"
 	minioSha256 "github.com/minio/sha256-simd"
 	"github.com/syncthing/syncthing/lib/logger"
+	strand "github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -47,7 +49,7 @@ var (
 	cryptoPerf      float64
 	minioPerf       float64
 	minioAvx512Perf float64
-	avx512Server    *minioSha256.Avx512Server
+	avx512Servers   = make([]*minioSha256.Avx512Server, 0, 0)
 )
 
 func SelectAlgo() {
@@ -55,7 +57,10 @@ func SelectAlgo() {
 	// Sadly they do not expose a way to check support, so we use a separate library for that.
 	if cpuid.CPU.AVX512F() && cpuid.CPU.AVX512DQ() && cpuid.CPU.AVX512BW() && cpuid.CPU.AVX512VL() {
 		l.Infoln("Detected AVX-512 support")
-		avx512Server = minioSha256.NewAvx512Server()
+		for i := 0; i < runtime.NumCPU(); i++ {
+			avx512Servers = append(avx512Servers, minioSha256.NewAvx512Server())
+		}
+
 	}
 	switch os.Getenv("STHASHING") {
 	case "":
@@ -135,7 +140,7 @@ func benchmark() {
 		if perf := cpuBenchOnce(benchmarkingDuration, minioSha256.New); perf > minioPerf {
 			minioPerf = perf
 		}
-		if avx512Server != nil {
+		if len(avx512Servers) > 0 {
 			if perf := cpuBenchOnce(benchmarkingDuration, minioAvx512New); perf > minioAvx512Perf {
 				minioAvx512Perf = perf
 			}
@@ -144,7 +149,7 @@ func benchmark() {
 }
 
 func minioAvx512New() hash.Hash {
-	return minioSha256.NewAvx512(avx512Server)
+	return minioSha256.NewAvx512(avx512Servers[int(strand.Int63())%len(avx512Servers)])
 }
 
 func minioAvx512Sum256(data []byte) [Size]byte {
@@ -159,28 +164,36 @@ func minioAvx512Sum256(data []byte) [Size]byte {
 func cpuBenchOnce(duration time.Duration, newFn func() hash.Hash) float64 {
 	// Protocol max block size.
 	chunkSize := 16 << 20
-	h := newFn()
 	bs := make([]byte, chunkSize)
 	rand.Reader.Read(bs)
 
 	t0 := time.Now()
 	wg := sync.NewWaitGroup()
 	var b uint64
-	for i := 0; i <= benchmarkingRoutines; i++ {
+	for c := 0; c < runtime.NumCPU(); c++ {
 		wg.Add(1)
 		go func() {
-			sz := 0
-			for time.Since(t0) < duration {
-				h.Write(bs)
-				sz += chunkSize
+			hf := newFn()
+			iwg := sync.NewWaitGroup()
+			for i := 0; i <= benchmarkingRoutines; i++ {
+				iwg.Add(1)
+				go func(h hash.Hash) {
+					sz := 0
+					for time.Since(t0) < duration {
+						h.Write(bs)
+						sz += chunkSize
+					}
+					atomic.AddUint64(&b, uint64(sz))
+					iwg.Done()
+				}(hf)
 			}
-			atomic.AddUint64(&b, uint64(sz))
+			iwg.Wait()
+			hf.Sum(nil)
 			wg.Done()
 		}()
 	}
 	wg.Wait()
 	bt := atomic.LoadUint64(&b)
-	h.Sum(nil)
 	d := time.Since(t0)
 	return float64(int(float64(bt)/d.Seconds()/(1<<20)*100)) / 100
 }
