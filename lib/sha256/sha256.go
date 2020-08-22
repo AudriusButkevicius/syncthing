@@ -28,7 +28,7 @@ var l = logger.DefaultLogger.NewFacility("sha256", "SHA256 hashing package")
 
 const (
 	benchmarkingIterations = 3
-	benchmarkingDuration   = 150 * time.Millisecond
+	benchmarkingDuration   = 3 * time.Second
 	benchmarkingRoutines   = 100
 	defaultImpl            = "crypto/sha256"
 	minioImpl              = "minio/sha256-simd"
