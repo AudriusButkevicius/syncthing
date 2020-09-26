@@ -1,0 +1,190 @@
+syntax = "proto3";
+
+package api.folder;
+
+import "lib/config/folderconfiguration.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "lib/api/common.proto";
+import "lib/protocol/bep.proto";
+
+message IgnorePatterns {
+    repeated string patterns = 1;
+}
+
+message AddFolderRequest {
+    config.FolderConfiguration configuration   = 1;
+    IgnorePatterns             ignore_patterns = 2;
+}
+
+message FolderRequest {
+    string folder_id  = 1;
+}
+
+message FolderPagedRequest {
+    string          folder_id       = 1;
+    Pagination      pagination      = 2;
+}
+
+
+message FolderErrorsResponse {
+    repeated PathError  errors          = 1;
+    Pagination          pagination      = 2;
+}
+
+message FileVersion {
+    string                      file_name               = 1;
+    google.protobuf.Timestamp   version_time            = 2;
+    google.protobuf.Timestamp   modification_time       = 3;
+    int64                       size                    = 4; // This will come out as strings in JSON, because JS 'number' only supports 53 bits.
+}
+
+message FileVersions {
+    repeated FileVersion        versions                = 1;
+}
+
+message RestoreFileVersionsRequest {
+    string                      folder_id               = 1;
+    FileVersions                versions                = 2;
+}
+
+enum FolderState {
+    FOLDER_STATE_IDLE               = 0;
+    FOLDER_STATE_SCANNING           = 1;
+    FOLDER_STATE_SCAN_WAITING       = 2;
+    FOLDER_STATE_SYNC_WAITING       = 3;
+    FOLDER_STATE_SYNC_PREPARING     = 4;
+    FOLDER_STATE_SYNCING            = 5;
+    FOLDER_STATE_CLEANING           = 6;
+    FOLDER_STATE_CLEAN_WAITING      = 7;
+    FOLDER_STATE_ERROR              = 8;
+}
+
+message FolderCompletion {
+    ItemCounts                      global              = 1;
+    ItemCounts                      local               = 2;
+    ItemCounts                      need                = 3;
+    ItemCounts                      changed             = 4;
+}
+
+message FolderSummary {
+    int64                           error_count         = 1;
+    FolderCompletion                completion          = 2;
+    FolderState                     state               = 3;
+    google.protobuf.Timestamp       state_since         = 4;
+    int64                           current_sequence    = 5;
+    bool                            has_ignore_patterns = 6;
+    string                          watch_error         = 7;
+}
+
+message SetIgnoresRequest {
+    string                          folder_id           = 1;
+    IgnorePatterns                  ignore_patterns     = 2;
+}
+
+message FolderPathRequest {
+    string                          folder_id           = 1;
+    string                          path                = 2;
+}
+
+service FolderService {
+    rpc Add (AddFolderRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            post: "/v2/folder"
+        };
+    }
+
+    rpc Remove (FolderRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            delete: "/v2/folder/{folder_id}"
+        };
+    }
+
+    rpc Pause (FolderRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            put: "/v2/folder/{folder_id}/pause"
+        };
+    }
+
+    rpc Resume (FolderRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            delete: "/v2/folder/{folder_id}/pause"
+        };
+    }
+
+    rpc GetErrors (FolderPagedRequest) returns (stream PathError) {
+        option (google.api.http) = {
+            get: "/v2/folder/{folder_id}/errors"
+        };
+    }
+
+    rpc GetFileVersions (FolderRequest) returns (stream FileVersion) {
+        option (google.api.http) = {
+            get: "/v2/folder/{folder_id}/versions"
+        };
+    }
+
+    rpc RestoreFileVersions (RestoreFileVersionsRequest) returns (stream PathError) {
+        option (google.api.http) = {
+            put: "/v2/folder/{folder_id}/versions"
+            body: "versions"
+        };
+    }
+
+    rpc GetSummary (FolderRequest) returns (FolderSummary) {
+        option (google.api.http) = {
+            get: "/v2/folder/{folder_id}/summary"
+        };
+    }
+
+    rpc GetNeeded (FolderPagedRequest) returns (stream protocol.FileInfo) {
+        option (google.api.http) = {
+            get: "/v2/folder/{folder_id}/needed"
+        };
+    }
+
+    rpc GetChanged (FolderPagedRequest) returns (stream protocol.FileInfo) {
+        option (google.api.http) = {
+            get: "/v2/folder/{folder_id}/changed"
+        };
+    }
+
+    rpc GetIgnores (FolderRequest) returns (IgnorePatterns) {
+        option (google.api.http) = {
+            get: "/v2/folder/{folder_id}/ignores"
+        };
+    }
+
+    rpc SetIgnores (SetIgnoresRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            put: "/v2/folder/{folder_id}/ignores"
+            body: "ignore_patterns"
+        };
+    }
+
+    rpc Scan (FolderPathRequest) returns (stream PathError) {
+        option (google.api.http) = {
+            post: "/v2/folder/{folder_id}/scan"
+            body: "path"
+        };
+    }
+
+    rpc Revert (FolderRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            put: "/v2/folder/{folder_id}/revert"
+        };
+    }
+
+    rpc Override (FolderRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            put: "/v2/folder/{folder_id}/override"
+        };
+    }
+
+    rpc Bump (FolderPathRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            put: "/v2/folder/{folder_id}/bump"
+        };
+    }
+}

@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package api.folder;
+
+import "lib/config/folderconfiguration.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+
+message GetFolderConfigurationRequest {
+    string id  = 1;
+}
+
+message SetFolderConfigurationRequest {
+    string                     id            = 1;
+    config.FolderConfiguration configuration = 2;
+}
+
+message UpdateFolderConfigurationRequest {
+    string                     id            = 1;
+    config.FolderConfiguration configuration = 2;
+    google.protobuf.FieldMask  update_mask   = 3;
+}
+
+service FolderConfigurationService {
+    rpc GetFolderConfigurations (google.protobuf.Empty) returns (stream config.FolderConfiguration) {
+        option (google.api.http) = {
+            get: "/v2/folder/config"
+        };
+    }
+
+    rpc GetFolderConfiguration (GetFolderConfigurationRequest) returns (config.FolderConfiguration) {
+        option (google.api.http) = {
+            get: "/v2/folder/config/{id}"
+        };
+    }
+
+    rpc SetFolderConfiguration (SetFolderConfigurationRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            put: "/v2/folder/config/{id}"
+            body: "configuration"
+        };
+    }
+
+    rpc UpdateFolderConfiguration (UpdateFolderConfigurationRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            patch: "/v2/folder/config/{id}"
+            body: "configuration"
+        };
+    }
+}

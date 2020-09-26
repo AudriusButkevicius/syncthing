@@ -207,9 +207,10 @@ var targets = map[string]target{
 // These are repos we need to clone to run "go generate"
 
 type dependencyRepo struct {
-	path   string
-	repo   string
-	commit string
+	path     string
+	repo     string
+	commit   string
+	binaries []string
 }
 
 var dependencyRepos = []dependencyRepo{
@@ -795,14 +796,31 @@ func shouldRebuildAssets(target, srcdir string) bool {
 }
 
 func proto() {
-	pv := protobufVersion()
 	dependencyRepos = append(dependencyRepos,
-		dependencyRepo{path: "protobuf", repo: "https://github.com/gogo/protobuf.git", commit: pv},
+		dependencyRepo{
+			path:   "protobuf",
+			repo:   "https://github.com/gogo/protobuf.git",
+			commit: depVersion("github.com/gogo/protobuf"),
+			binaries: []string{
+				"github.com/gogo/protobuf/protoc-gen-gogofast",
+			},
+		},
+		dependencyRepo{
+			path:   "grpc-gateway",
+			repo:   "https://github.com/grpc-ecosystem/grpc-gateway.git",
+			commit: depVersion("github.com/grpc-ecosystem/grpc-gateway"),
+			binaries: []string{
+				"github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway",
+				"github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger",
+			},
+		},
 	)
 
-	runPrint(goCmd, "get", fmt.Sprintf("github.com/gogo/protobuf/protoc-gen-gogofast@%v", pv))
 	os.MkdirAll("repos", 0755)
 	for _, dep := range dependencyRepos {
+		for _, binary := range dep.binaries {
+			runPrint(goCmd, "get", fmt.Sprintf("%s@%v", binary, dep.commit))
+		}
 		path := filepath.Join("repos", dep.path)
 		if _, err := os.Stat(path); err != nil {
 			runPrintInDir("repos", "git", "clone", dep.repo, dep.path)
@@ -1331,10 +1349,10 @@ func (t target) BinaryName() string {
 	return t.binaryName
 }
 
-func protobufVersion() string {
-	bs, err := runError(goCmd, "list", "-f", "{{.Version}}", "-m", "github.com/gogo/protobuf")
+func depVersion(pkg string) string {
+	bs, err := runError(goCmd, "list", "-f", "{{.Version}}", "-m", pkg)
 	if err != nil {
-		log.Fatal("Getting protobuf version:", err)
+		log.Fatal("Getting", pkg, "version:", err)
 	}
 	return string(bs)
 }

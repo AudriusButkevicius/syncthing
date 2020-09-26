@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package api.device;
+
+import "lib/config/deviceconfiguration.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "lib/api/common.proto";
+import "lib/protocol/bep.proto";
+
+message DeviceRequest {
+    string device_id  = 1;
+}
+
+message DeviceFolderRequest {
+    string                          device_id           = 1;
+    string                          folder_id           = 2;
+}
+
+message DeviceCompletion {
+    ItemCounts  global  = 1;
+    ItemCounts  need    = 2;
+}
+
+service DeviceService {
+    rpc Add (config.DeviceConfiguration) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            post: "/v2/device"
+        };
+    }
+
+    rpc Remove (DeviceRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            delete: "/v2/device/{device_id}"
+        };
+    }
+
+    rpc Pause (DeviceRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            put: "/v2/device/{device_id}/pause"
+        };
+    }
+
+    rpc Resume (DeviceRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            delete: "/v2/device/{device_id}/pause"
+        };
+    }
+
+    rpc GetCompletion (DeviceFolderRequest) returns (DeviceCompletion) {
+        option (google.api.http) = {
+            get: "/v2/device/{device_id}/completion/{folder_id}"
+        };
+    }
+}
