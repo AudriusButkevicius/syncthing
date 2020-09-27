@@ -18,18 +18,14 @@ import (
 ///go:generate go run scripts/protofmt.go .
 
 // First generate extensions using standard proto compiler.
-///go:generate protoc -I ../ -I . --gogofast_out=Mgoogle/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor,paths=source_relative:ext ext.proto
+//go:generate protoc -I ../ -I . --gogofast_out=Mgoogle/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor,paths=source_relative:ext ext.proto
 
 // Then build our vanity compiler that uses the new extensions
-///go:generate go build -o scripts/protoc-gen-gosyncthing scripts/protoc_plugin.go
+//go:generate go build -o scripts/protoc-gen-gosyncthing scripts/protoc_plugin.go
 
 // Inception, go generate calls the script itself that then deals with generation.
 // This is only done because go:generate does not support wildcards in paths.
-///go:generate go run generate.go lib/config lib/fs lib/protocol lib/db
-
-// Use the standard compiler here. We can revisit this later, but we don't plan on exposing this via any APIs.
-///go:generate protoc -I ../ -I . --gogofast_out=paths=source_relative:.. lib/protocol/bep.proto
-///go:generate protoc -I ../ -I . --gogofast_out=Mlib/protocol/bep.proto=github.com/syncthing/syncthing/lib/protocol,paths=source_relative:.. lib/db/structs.proto
+//go:generate go run generate.go lib/protocol lib/config lib/fs lib/db
 
 //go:generate protoc -I ../ -I . -I ../repos/grpc-gateway/third_party/googleapis --gogofast_out=plugins=grpc,paths=source_relative:out lib/api/folder/*.proto
 //go:generate protoc -I ../ -I . -I ../repos/grpc-gateway/third_party/googleapis --swagger_out=logtostderr=true,allow_merge:out --grpc-gateway_out=logtostderr=true,paths=source_relative:out lib/api/folder/*.proto

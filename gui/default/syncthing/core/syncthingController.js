@@ -76,6 +76,7 @@ angular.module('syncthing.core')
             order: "random",
             fileVersioningSelector: "none",
             trashcanClean: 0,
+            versioningCleanupIntervalS: 3600,
             simpleKeep: 5,
             staggeredMaxAge: 365,
             staggeredCleanInterval: 3600,
@@ -1764,7 +1765,7 @@ angular.module('syncthing.core')
             $scope.currentFolder.simpleKeep = $scope.currentFolder.simpleKeep || 5;
             $scope.currentFolder.staggeredCleanInterval = $scope.currentFolder.staggeredCleanInterval || 3600;
             $scope.currentFolder.staggeredVersionsPath = $scope.currentFolder.staggeredVersionsPath || "";
-            $scope.currentFolder.versioningCleanupIntervalS = $scope.currentFolder.versioningCleanupIntervalS || 0;
+            $scope.currentFolder.versioningCleanupIntervalS = $scope.currentFolder.versioningCleanupIntervalS || 3600;
 
             // staggeredMaxAge can validly be zero, which we should not replace
             // with the default value of 365. So only set the default if it's
@@ -2011,7 +2012,7 @@ angular.module('syncthing.core')
                 filters: {},
                 massAction: function (name, action) {
                     $.each($scope.restoreVersions.versions, function (key) {
-                        if (key.startsWith(name + '/') && (!$scope.restoreVersions.filters.text || key.indexOf($scope.restoreVersions.filters.text) > -1)) {
+                        if (key.indexOf(name + '/') == 0 && (!$scope.restoreVersions.filters.text || key.indexOf($scope.restoreVersions.filters.text) > -1)) {
                             if (action == 'unset') {
                                 delete $scope.restoreVersions.selections[key];
                                 return;
@@ -2524,8 +2525,8 @@ angular.module('syncthing.core')
 
         $scope.isUnixAddress = function (address) {
             return address != null &&
-                (address.startsWith('/') ||
-                    address.startsWith('unix://') ||
-                    address.startsWith('unixs://'));
+                (address.indexOf('/') == 0 ||
+                    address.indexOf('unix://') == 0 ||
+                    address.indexOf('unixs://') == 0);
         }
     });
